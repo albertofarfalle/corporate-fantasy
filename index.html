@@ -7,6 +7,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="equipe.js"></script>
   <script src="candidats.js"></script>
+  <!-- Synchronisation Live P2P gratuite sans compte (Gun.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
 
@@ -16,7 +18,7 @@
       <img src="logo.png" alt="Logo Corporate Fantasy" class="h-24 mx-auto mb-6 object-contain" onerror="this.style.display='none'" />
       <h1 class="text-2xl font-bold text-white mb-2">Corporate Fantasy 2027</h1>
       <p class="text-slate-400 text-sm mb-6">
-        Ouvre la séance du Conseil pour composer la future équipe managériale dans le budget alloué.
+        Rejoins la salle du Conseil en direct pour élire la future équipe managériale dans le budget alloué.
       </p>
       <form id="login-form" class="space-y-4">
         <input
@@ -24,14 +26,14 @@
           id="pseudo-input"
           required
           maxlength="20"
-          placeholder="Entre ton pseudo d'animateur..."
+          placeholder="Entre ton pseudo..."
           class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
         />
         <button
           type="submit"
           class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-white transition cursor-pointer"
         >
-          Lancer la session
+          Entrer dans la salle Live
         </button>
       </form>
     </div>
@@ -40,19 +42,19 @@
   <!-- INTERFACE PRINCIPALE -->
   <div id="app" class="hidden max-w-7xl mx-auto p-4 md:p-6 space-y-6">
 
-    <!-- EN-TÊTE + JAUGE BUDGET -->
+    <!-- EN-TÊTE + JAUGE BUDGET + PARTICIPANTS EN DIRECT -->
     <header class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col lg:flex-row items-center justify-between gap-6">
       <div class="flex items-center gap-4">
         <img src="logo.png" alt="Logo" class="h-14 w-auto object-contain" onerror="this.style.display='none'" />
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-xl font-bold text-white">Corporate Fantasy 2027</h1>
-            <span class="px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full">
-              SESSION ACTIVE
+            <span class="px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> LIVE
             </span>
           </div>
           <p class="text-xs text-slate-400 mt-1">
-            Promotion <strong>CDP = 20 M€</strong> • Promotion <strong>MAN = 30 M€</strong>
+            Promotion <strong>CDP = 20 M€</strong> • Promotion <strong>MAN = 30 M€</strong> • Majorité requise (&gt;50%)
           </p>
         </div>
       </div>
@@ -71,22 +73,31 @@
         </div>
       </div>
 
-      <!-- ANIMATEUR -->
+      <!-- PARTICIPANTS EN LIGNE -->
       <div class="flex flex-col items-end">
-        <div class="text-xs text-slate-400 mb-1.5">Animateur de séance :</div>
-        <span id="host-badge" class="px-3 py-1 text-xs rounded-full bg-indigo-600 text-white font-bold"></span>
+        <div class="text-xs text-slate-400 mb-1.5">
+          Participants en ligne (<span id="online-count" class="text-white font-bold">1</span>) :
+        </div>
+        <div id="online-users" class="flex flex-wrap justify-end gap-1.5 max-w-xs"></div>
       </div>
     </header>
 
-    <!-- ORGANIGRAMME PYRAMIDAL DE L'ÉQUIPE ACTUELLE -->
-    <section class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6">
-      <div class="flex items-center justify-between mb-6">
+    <!-- ORGANIGRAMME PYRAMIDAL REPLIABLE -->
+    <section class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
+      <div class="flex items-center justify-between">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">
           Organigramme Actuel (En poste)
         </h2>
-        <span class="text-xs text-slate-500">Vue hiérarchique</span>
+        <button
+          type="button"
+          id="toggle-org-btn"
+          onclick="toggleOrganigramme()"
+          class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
+        >
+          Masquer l'organigramme ▲
+        </button>
       </div>
-      <div id="current-team-pyramid" class="space-y-4"></div>
+      <div id="current-team-pyramid" class="space-y-4 mt-6"></div>
     </section>
 
     <!-- ZONE DE JEU -->
@@ -97,20 +108,20 @@
         <div>
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-white flex items-center gap-2">
-              🏆 Promotions 2027 Retenues
+              🏆 Promotions 2027 Élues
             </h2>
             <span id="elected-count" class="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300">
               0 / 5 postes
             </span>
           </div>
           <p class="text-xs text-slate-400 mb-4">
-            Retrouvez ici les candidats promus en <strong>MAN</strong> (30 M€) ou <strong>CDP</strong> (20 M€).
+            Un candidat entre dans l'équipe dès qu'il obtient plus de 50% des voix sur un poste (MAN ou CDP).
           </p>
           <div id="elected-team-list" class="space-y-3"></div>
         </div>
 
         <div id="consensus-banner" class="mt-6 p-4 rounded-xl bg-slate-950 border border-slate-800 text-center">
-          <p class="text-sm text-slate-400">Sélectionnez des candidats à droite...</p>
+          <p class="text-sm text-slate-400">En attente des votes de l'équipe...</p>
         </div>
       </section>
 
@@ -118,30 +129,57 @@
       <section class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <h2 class="text-lg font-bold text-white">📋 Candidats à la promotion 2027</h2>
-          <span class="text-xs text-slate-400">Choisis le poste visé : CDP (20 M€) ou MAN (30 M€)</span>
+          <span class="text-xs text-slate-400">Vote pour promouvoir en CDP ou MAN</span>
         </div>
-        <div id="candidates-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+        <div id="candidates-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
       </section>
 
     </div>
   </div>
 
   <script>
-    // Stocke les choix sous la forme { "c1": "MAN", "c2": "CDP" }
-    let selectedRoles = {};
+    // =========================================================================
+    // INITIALISATION SYNCHRONISATION LIVE (GUN.JS - RELAYS PUBLICS GRATUITS)
+    // =========================================================================
+    const gun = Gun([
+      'https://gun-manhattan.herokuapp.com/gun',
+      'https://relay.peer.ooo/gun'
+    ]);
 
-    // 1. Affichage pyramidal de l'équipe actuelle
+    // Espace unique lié à l'URL exacte de ton site GitHub
+    const roomId = "cf2027_" + window.location.host.replace(/[^a-zA-Z0-9]/g, "_");
+    const room = gun.get(roomId);
+
+    let myPseudo = "";
+    const myUserId = "u_" + Math.random().toString(36).substring(2, 10);
+    let myVotes = {}; // { c1: "MAN", c2: "CDP" }
+    let peersState = {}; // { userId: { pseudo, lastSeen, votesJson } }
+    let isOrgVisible = true;
+
+    // 1. Afficher / Masquer l'organigramme
+    window.toggleOrganigramme = function() {
+      isOrgVisible = !isOrgVisible;
+      const pyramid = document.getElementById("current-team-pyramid");
+      const btn = document.getElementById("toggle-org-btn");
+      if (isOrgVisible) {
+        pyramid.classList.remove("hidden");
+        btn.textContent = "Masquer l'organigramme ▲";
+      } else {
+        pyramid.classList.add("hidden");
+        btn.textContent = "Afficher l'organigramme ▼";
+      }
+    };
+
+    // 2. Affichage pyramidal de l'équipe actuelle
     function renderCurrentTeam() {
       const container = document.getElementById("current-team-pyramid");
-
-      // Définition des étages de la pyramide dans l'ordre exact demandé
       const niveaux = [
-        { label: "Direction Générale", match: (p) => p.toUpperCase() === "DUO" },
-        { label: "Adjointe DUO", match: (p) => p.toUpperCase().includes("PARTNER") || p.toUpperCase().includes("ADJOINTE") },
-        { label: "Directeurs", match: (p) => p.toUpperCase().includes("DIRECTEUR") },
-        { label: "Senior Managers 2 (SM2)", match: (p) => p.toUpperCase() === "SM2" },
-        { label: "Senior Managers (SM)", match: (p) => p.toUpperCase() === "SM" },
-        { label: "Managers (MAN)", match: (p) => p.toUpperCase() === "MAN" }
+        { match: (p) => p.toUpperCase() === "DUO" },
+        { match: (p) => p.toUpperCase().includes("PARTNER") || p.toUpperCase().includes("ADJOINTE") },
+        { match: (p) => p.toUpperCase().includes("DIRECTEUR") },
+        { match: (p) => p.toUpperCase() === "SM2" },
+        { match: (p) => p.toUpperCase() === "SM" },
+        { match: (p) => p.toUpperCase() === "MAN" }
       ];
 
       let html = "";
@@ -157,15 +195,13 @@
         });
 
         if (members.length > 0) {
-          // Ajoute un petit connecteur vertical entre les étages
           if (html !== "") {
             html += `<div class="flex justify-center -my-2"><div class="w-px h-4 bg-slate-700"></div></div>`;
           }
-
           html += `
             <div class="flex flex-wrap justify-center gap-3">
               ${members.map(member => `
-                <div class="flex items-center gap-3 bg-slate-950 border ${levelIdx <= 1 ? 'border-indigo-500/40 shadow-md shadow-indigo-950/30' : 'border-slate-800'} rounded-xl px-4 py-2.5 min-w-[185px]">
+                <div class="flex items-center gap-3 bg-slate-950 border ${levelIdx <= 1 ? 'border-indigo-500/40' : 'border-slate-800'} rounded-xl px-4 py-2.5 min-w-[180px]">
                   <img src="${member.genre}.png" alt="${member.genre}" class="w-9 h-9 rounded-full object-cover bg-slate-800 p-0.5" />
                   <div>
                     <div class="font-semibold text-sm text-white">${member.prenom}</div>
@@ -178,13 +214,12 @@
         }
       });
 
-      // Filet de sécurité si un poste a une orthographe imprévue
       const others = EQUIPE_ACTUELLE.filter((_, idx) => !usedIndexes.has(idx));
       if (others.length > 0) {
         html += `
           <div class="flex flex-wrap justify-center gap-3 pt-2 border-t border-slate-800/50">
             ${others.map(member => `
-              <div class="flex items-center gap-3 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 min-w-[185px]">
+              <div class="flex items-center gap-3 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 min-w-[180px]">
                 <img src="${member.genre}.png" alt="${member.genre}" class="w-9 h-9 rounded-full object-cover bg-slate-800 p-0.5" />
                 <div>
                   <div class="font-semibold text-sm text-white">${member.prenom}</div>
@@ -195,86 +230,165 @@
           </div>
         `;
       }
-
       container.innerHTML = html;
     }
 
-    // 2. Connexion
+    // 3. Connexion et battement de cœur (heartbeat) toutes les 3 secondes
     document.getElementById("login-form").addEventListener("submit", (e) => {
       e.preventDefault();
       const input = document.getElementById("pseudo-input").value.trim();
       if (!input) return;
-      document.getElementById("host-badge").textContent = input;
+      myPseudo = input;
+
       document.getElementById("login-screen").classList.add("hidden");
       document.getElementById("app").classList.remove("hidden");
+
+      broadcastMyState();
+      setInterval(broadcastMyState, 3000); // Maintient la présence active en continu
+      setInterval(renderBoard, 2000);      // Nettoie les joueurs déconnectés
+      listenToPeers();
       renderBoard();
     });
 
-    // 3. Sélectionner / Basculer entre CDP, MAN ou Retirer
-    window.selectRole = function(candidateId, role) {
-      if (selectedRoles[candidateId] === role) {
-        delete selectedRoles[candidateId]; // Re-cliquer sur le bouton actif le retire
+    function broadcastMyState() {
+      if (!myPseudo) return;
+      const payload = {
+        pseudo: myPseudo,
+        lastSeen: Date.now(),
+        votesJson: JSON.stringify(myVotes)
+      };
+      peersState[myUserId] = payload;
+      room.get("users").get(myUserId).put(payload);
+    }
+
+    function listenToPeers() {
+      room.get("users").map().on((data, uid) => {
+        if (!data || !data.pseudo) return;
+        peersState[uid] = data;
+        renderBoard();
+      });
+    }
+
+    // 4. Voter pour CDP ou MAN (compatible PC et Mobile)
+    window.voteRole = function(candidateId, role) {
+      if (myVotes[candidateId] === role) {
+        delete myVotes[candidateId];
       } else {
-        selectedRoles[candidateId] = role; // Définit ou bascule vers CDP / MAN
+        myVotes[candidateId] = role;
       }
+      broadcastMyState();
       renderBoard();
     };
 
-    // 4. Mise à jour du tableau de bord
+    // 5. Rendu du plateau et calcul des majorités
     function renderBoard() {
+      const now = Date.now();
+      // On considère comme "en ligne" les joueurs actifs dans les 12 dernières secondes
+      const activeUserIds = Object.keys(peersState).filter(uid => {
+        if (uid === myUserId) return true;
+        return (now - (peersState[uid].lastSeen || 0)) < 12000;
+      });
+
+      const totalOnline = activeUserIds.length;
+      const majorityNeeded = Math.floor(totalOnline / 2) + 1;
+
+      // Liste des participants connectés
+      document.getElementById("online-count").textContent = totalOnline;
+      document.getElementById("online-users").innerHTML = activeUserIds.map(uid => `
+        <span class="px-2.5 py-1 text-xs rounded-full ${uid === myUserId ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-800 text-slate-300'}">
+          ${peersState[uid].pseudo}
+        </span>
+      `).join("");
+
+      // Parsing des votes de tous les participants actifs
+      const parsedVotesByUser = {};
+      activeUserIds.forEach(uid => {
+        try {
+          parsedVotesByUser[uid] = JSON.parse(peersState[uid].votesJson || "{}");
+        } catch (e) {
+          parsedVotesByUser[uid] = {};
+        }
+      });
+
       const electedCandidates = [];
       let totalBudgetUsed = 0;
 
       const candidatesHTML = CANDIDATS.map(cand => {
-        const chosenRole = selectedRoles[cand.id] || null; // 'CDP', 'MAN' ou null
-        const cost = chosenRole ? PRIX_PAR_ROLE[chosenRole] : 0;
+        let votesCDP = 0;
+        let votesMAN = 0;
 
-        if (chosenRole) {
-          electedCandidates.push({ ...cand, chosenRole, cost });
+        activeUserIds.forEach(uid => {
+          const v = parsedVotesByUser[uid][cand.id];
+          if (v === "CDP") votesCDP++;
+          if (v === "MAN") votesMAN++;
+        });
+
+        let electedRole = null;
+        let winningVotes = 0;
+        if (votesMAN >= majorityNeeded) {
+          electedRole = "MAN";
+          winningVotes = votesMAN;
+        } else if (votesCDP >= majorityNeeded) {
+          electedRole = "CDP";
+          winningVotes = votesCDP;
+        }
+
+        if (electedRole) {
+          const cost = PRIX_PAR_ROLE[electedRole];
+          electedCandidates.push({ ...cand, electedRole, cost, winningVotes });
           totalBudgetUsed += cost;
         }
 
-        const isCDP = chosenRole === "CDP";
-        const isMAN = chosenRole === "MAN";
+        const myChoice = myVotes[cand.id] || null;
+        const isMyCDP = myChoice === "CDP";
+        const isMyMAN = myChoice === "MAN";
 
         return `
-          <div class="border ${chosenRole ? (isMAN ? 'border-amber-500/60 bg-amber-950/10' : 'border-sky-500/60 bg-sky-950/10') : 'border-slate-800 bg-slate-950'} rounded-xl p-4 flex flex-col justify-between transition">
+          <div class="border ${electedRole ? (electedRole === 'MAN' ? 'border-amber-500/60 bg-amber-950/15' : 'border-sky-500/60 bg-sky-950/15') : 'border-slate-800 bg-slate-950'} rounded-xl p-4 flex flex-col justify-between relative">
             <div class="flex items-start justify-between gap-2">
               <div class="flex items-center gap-3">
                 <img src="${cand.genre}.png" alt="${cand.genre}" class="w-12 h-12 rounded-full object-cover bg-slate-800 p-1" />
                 <div>
                   <h3 class="font-bold text-white flex items-center gap-2">
                     ${cand.prenom}
-                    ${isCDP ? '<span class="text-xs px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">PROMU CDP</span>' : ''}
-                    ${isMAN ? '<span class="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">PROMU MAN</span>' : ''}
+                    ${electedRole === 'CDP' ? '<span class="text-[11px] px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">ÉLU CDP</span>' : ''}
+                    ${electedRole === 'MAN' ? '<span class="text-[11px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">ÉLU MAN</span>' : ''}
                   </h3>
                   <p class="text-xs text-slate-400">Actuel : ${cand.poste}</p>
                 </div>
               </div>
             </div>
 
-            <!-- Double bouton de choix : CDP (20 M€) ou MAN (30 M€) -->
-            <div class="mt-4 grid grid-cols-2 gap-2">
+            <!-- Compteurs de voix discrets -->
+            <div class="flex justify-between text-[11px] text-slate-400 mt-3 px-1">
+              <span>Voix CDP : <strong class="text-sky-400">${votesCDP}/${totalOnline}</strong></span>
+              <span>Voix MAN : <strong class="text-amber-400">${votesMAN}/${totalOnline}</strong></span>
+            </div>
+
+            <!-- Boutons épurés : CDP ou MAN uniquement -->
+            <div class="mt-2 grid grid-cols-2 gap-2 relative z-10">
               <button
-                onclick="selectRole('${cand.id}', 'CDP')"
-                class="py-2 px-2 rounded-lg text-xs font-semibold transition cursor-pointer border ${
-                  isCDP
-                    ? 'bg-sky-600 border-sky-400 text-white shadow-sm'
+                type="button"
+                onclick="voteRole('${cand.id}', 'CDP')"
+                class="py-2.5 px-3 rounded-lg text-xs font-bold tracking-wide transition cursor-pointer select-none border ${
+                  isMyCDP
+                    ? 'bg-sky-600 border-sky-400 text-white shadow-md'
                     : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
                 }"
               >
-                ${isCDP ? '✓ CDP (20 M€)' : 'Promouvoir CDP (20 M€)'}
+                ${isMyCDP ? '✓ CDP' : 'CDP'}
               </button>
 
               <button
-                onclick="selectRole('${cand.id}', 'MAN')"
-                class="py-2 px-2 rounded-lg text-xs font-semibold transition cursor-pointer border ${
-                  isMAN
-                    ? 'bg-amber-600 border-amber-400 text-white shadow-sm'
+                type="button"
+                onclick="voteRole('${cand.id}', 'MAN')"
+                class="py-2.5 px-3 rounded-lg text-xs font-bold tracking-wide transition cursor-pointer select-none border ${
+                  isMyMAN
+                    ? 'bg-amber-600 border-amber-400 text-white shadow-md'
                     : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
                 }"
               >
-                ${isMAN ? '✓ MAN (30 M€)' : 'Promouvoir MAN (30 M€)'}
+                ${isMyMAN ? '✓ MAN' : 'MAN'}
               </button>
             </div>
           </div>
@@ -288,12 +402,12 @@
       if (electedCandidates.length === 0) {
         electedContainer.innerHTML = `
           <div class="text-center py-8 border border-dashed border-slate-800 rounded-xl text-slate-500 text-sm">
-            Aucune promotion sélectionnée pour le moment.
+            Aucune promotion n'a encore atteint la majorité (${majorityNeeded} voix requises).
           </div>
         `;
       } else {
         electedContainer.innerHTML = electedCandidates.map(cand => {
-          const isMAN = cand.chosenRole === "MAN";
+          const isMAN = cand.electedRole === "MAN";
           return `
             <div class="flex items-center justify-between bg-slate-950 border ${isMAN ? 'border-amber-500/40' : 'border-sky-500/40'} rounded-xl p-3">
               <div class="flex items-center gap-3">
@@ -302,16 +416,13 @@
                   <div class="font-bold text-sm text-white flex items-center gap-2">
                     ${cand.prenom}
                     <span class="text-[11px] px-2 py-0.5 rounded font-bold ${isMAN ? 'bg-amber-500/20 text-amber-300' : 'bg-sky-500/20 text-sky-300'}">
-                      ${cand.chosenRole}
+                      ${cand.electedRole}
                     </span>
                   </div>
-                  <div class="text-xs text-slate-400">Actuel : ${cand.poste}</div>
+                  <div class="text-xs text-slate-400">${cand.winningVotes}/${totalOnline} voix • Actuel : ${cand.poste}</div>
                 </div>
               </div>
-              <div class="flex items-center gap-3">
-                <span class="font-bold ${isMAN ? 'text-amber-400' : 'text-sky-400'} text-sm">${cand.cost} M€</span>
-                <button onclick="selectRole('${cand.id}', '${cand.chosenRole}')" title="Retirer" class="text-slate-500 hover:text-rose-400 text-xs font-bold cursor-pointer">✕</button>
-              </div>
+              <span class="font-bold ${isMAN ? 'text-amber-400' : 'text-sky-400'} text-sm">${cand.cost} M€</span>
             </div>
           `;
         }).join("");
@@ -327,19 +438,19 @@
       document.getElementById("budget-bar").className = `h-3 transition-all duration-300 ${isOverBudget ? 'bg-rose-500' : 'bg-emerald-500'}`;
       document.getElementById("budget-warning").classList.toggle("hidden", !isOverBudget);
 
-      // Compteur et statut final
+      // Compteur et bannière finale
       document.getElementById("elected-count").textContent = `${electedCandidates.length} / ${TAILLE_EQUIPE_CIBLE} postes`;
       const banner = document.getElementById("consensus-banner");
 
       if (electedCandidates.length === TAILLE_EQUIPE_CIBLE && !isOverBudget) {
         banner.className = "mt-6 p-4 rounded-xl bg-emerald-500/20 border border-emerald-500 text-center";
-        banner.innerHTML = `<p class="text-sm font-bold text-emerald-300">🎉 Équipe 2027 Validée ! Composition complète dans le budget de la direction.</p>`;
+        banner.innerHTML = `<p class="text-sm font-bold text-emerald-300">🎉 Consensus Validé ! L'équipe 2027 est complète et respecte le budget.</p>`;
       } else if (isOverBudget) {
         banner.className = "mt-6 p-4 rounded-xl bg-rose-500/20 border border-rose-500 text-center";
         banner.innerHTML = `<p class="text-sm font-bold text-rose-300">⚠️ Budget dépassé de ${totalBudgetUsed - BUDGET_MAX_DIRECTION} M€.</p>`;
       } else {
         banner.className = "mt-6 p-4 rounded-xl bg-slate-950 border border-slate-800 text-center";
-        banner.innerHTML = `<p class="text-xs text-slate-400">Encore <strong>${Math.max(0, TAILLE_EQUIPE_CIBLE - electedCandidates.length)}</strong> poste(s) à pourvoir.</p>`;
+        banner.innerHTML = `<p class="text-xs text-slate-400">Encore <strong>${Math.max(0, TAILLE_EQUIPE_CIBLE - electedCandidates.length)}</strong> poste(s) à valider à la majorité.</p>`;
       }
     }
 
