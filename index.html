@@ -144,9 +144,15 @@
 
     let myPseudo = "";
     const myUserId = "u_" + Math.random().toString(36).substring(2, 10);
-    let myVotes = {}; // { c1: "MAN", c2: "CDP" }
-    let peersState = {}; // { userId: { pseudo, lastSeen, votes } }
+    let myVotes = {};
+    let peersState = {};
     let isOrgVisible = true;
+
+    // Fonction utilitaire pour savoir si le candidat est déjà CDP
+    function isAlreadyCDP(poste) {
+      const p = (poste || "").trim().toUpperCase();
+      return p === "CDP" || p.includes("CHEF DE PROJET");
+    }
 
     // 1. Bouton Afficher / Masquer l'organigramme
     document.getElementById("toggle-org-btn").addEventListener("click", function () {
@@ -219,53 +225,59 @@
       container.innerHTML = html;
     }
 
-    // 3. Construction UNE SEULE FOIS des cartes candidats (pour éviter de casser les clics)
+    // 3. Construction UNE SEULE FOIS des cartes candidats (avec masquage du bouton CDP si déjà CDP)
     function initCandidateCards() {
       const container = document.getElementById("candidates-list");
-      container.innerHTML = CANDIDATS.map(cand => `
-        <div id="card-${cand.id}" class="border border-slate-800 bg-slate-950 rounded-xl p-4 flex flex-col justify-between transition-colors">
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex items-center gap-3">
-              <img src="${cand.genre}.png" alt="${cand.genre}" class="w-12 h-12 rounded-full object-cover bg-slate-800 p-1" />
-              <div>
-                <h3 class="font-bold text-white flex items-center gap-2">
-                  <span>${cand.prenom}</span>
-                  <span id="badge-${cand.id}" style="display:none;" class="text-[11px] px-2 py-0.5 rounded font-bold"></span>
-                </h3>
-                <p class="text-xs text-slate-400">Actuel : ${cand.poste}</p>
+      container.innerHTML = CANDIDATS.map(cand => {
+        const alreadyCDP = isAlreadyCDP(cand.poste);
+
+        return `
+          <div id="card-${cand.id}" class="border border-slate-800 bg-slate-950 rounded-xl p-4 flex flex-col justify-between transition-colors">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-3">
+                <img src="${cand.genre}.png" alt="${cand.genre}" class="w-12 h-12 rounded-full object-cover bg-slate-800 p-1" />
+                <div>
+                  <h3 class="font-bold text-white flex items-center gap-2">
+                    <span>${cand.prenom}</span>
+                    <span id="badge-${cand.id}" style="display:none;" class="text-[11px] px-2 py-0.5 rounded font-bold"></span>
+                  </h3>
+                  <p class="text-xs text-slate-400">Actuel : ${cand.poste}</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="flex justify-between text-[11px] text-slate-400 mt-3 px-1">
-            <span>Voix CDP : <strong id="vcdp-${cand.id}" class="text-sky-400">0/1</strong></span>
-            <span>Voix MAN : <strong id="vman-${cand.id}" class="text-amber-400">0/1</strong></span>
-          </div>
+            <div class="flex ${alreadyCDP ? 'justify-end' : 'justify-between'} text-[11px] text-slate-400 mt-3 px-1">
+              ${alreadyCDP ? '' : `<span>Voix CDP : <strong id="vcdp-${cand.id}" class="text-sky-400">0/1</strong></span>`}
+              <span>Voix MAN : <strong id="vman-${cand.id}" class="text-amber-400">0/1</strong></span>
+            </div>
 
-          <div class="mt-2 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              id="btn-cdp-${cand.id}"
-              onclick="handleVote('${cand.id}', 'CDP')"
-              class="py-2.5 px-3 rounded-lg text-xs font-bold tracking-wide transition cursor-pointer select-none border bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800"
-            >
-              CDP
-            </button>
+            <div class="mt-2 grid ${alreadyCDP ? 'grid-cols-1' : 'grid-cols-2'} gap-2">
+              ${alreadyCDP ? '' : `
+                <button
+                  type="button"
+                  id="btn-cdp-${cand.id}"
+                  onclick="handleVote('${cand.id}', 'CDP')"
+                  class="py-2.5 px-3 rounded-lg text-xs font-bold tracking-wide transition cursor-pointer select-none border bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800"
+                >
+                  CDP
+                </button>
+              `}
 
-            <button
-              type="button"
-              id="btn-man-${cand.id}"
-              onclick="handleVote('${cand.id}', 'MAN')"
-              class="py-2.5 px-3 rounded-lg text-xs font-bold tracking-wide transition cursor-pointer select-none border bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800"
-            >
-              MAN
-            </button>
+              <button
+                type="button"
+                id="btn-man-${cand.id}"
+                onclick="handleVote('${cand.id}', 'MAN')"
+                class="py-2.5 px-3 rounded-lg text-xs font-bold tracking-wide transition cursor-pointer select-none border bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800"
+              >
+                MAN
+              </button>
+            </div>
           </div>
-        </div>
-      `).join("");
+        `;
+      }).join("");
     }
 
-    // 4. Gestion du vote au clic (instantanée, sans recréer le HTML)
+    // 4. Gestion du vote au clic
     window.handleVote = function(candidateId, role) {
       if (myVotes[candidateId] === role) {
         delete myVotes[candidateId];
@@ -291,7 +303,7 @@
       connectLiveNetwork();
     });
 
-    // 6. Réseau temps réel MQTT (EMQX public broker over WSS)
+    // 6. Réseau temps réel MQTT
     function connectLiveNetwork() {
       mqttClient = mqtt.connect("wss://broker.emqx.io:8084/mqtt", {
         clientId: "cf2027_" + myUserId + "_" + Math.floor(Math.random() * 1000),
@@ -328,7 +340,6 @@
               lastSeen: Date.now(),
               votes: data.votes || {}
             };
-            // Si un nouveau joueur arrive, on renvoie immédiatement notre état pour qu'il nous voie sans attendre 3s
             if (isNewPeer && data.userId !== myUserId) {
               broadcastState();
             }
@@ -337,7 +348,6 @@
         } catch (err) {}
       });
 
-      // Battement de cœur toutes les 3 secondes
       setInterval(() => {
         if (mqttClient && mqttClient.connected) {
           broadcastState();
@@ -367,7 +377,7 @@
       }
     }
 
-    // 7. Mise à jour chirurgicale de l'interface (sans casser les boutons)
+    // 7. Mise à jour chirurgicale de l'interface
     function updateDashboard() {
       const now = Date.now();
       const activeUserIds = Object.keys(peersState).filter(uid => {
@@ -378,7 +388,6 @@
       const totalOnline = activeUserIds.length;
       const majorityNeeded = Math.floor(totalOnline / 2) + 1;
 
-      // Participants en ligne
       document.getElementById("online-count").textContent = totalOnline;
       document.getElementById("online-users").innerHTML = activeUserIds.map(uid => `
         <span class="px-2.5 py-1 text-xs rounded-full ${uid === myUserId ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-800 text-slate-300'}">
@@ -390,12 +399,13 @@
       let totalBudgetUsed = 0;
 
       CANDIDATS.forEach(cand => {
+        const alreadyCDP = isAlreadyCDP(cand.poste);
         let votesCDP = 0;
         let votesMAN = 0;
 
         activeUserIds.forEach(uid => {
           const userVotes = peersState[uid].votes || {};
-          if (userVotes[cand.id] === "CDP") votesCDP++;
+          if (!alreadyCDP && userVotes[cand.id] === "CDP") votesCDP++;
           if (userVotes[cand.id] === "MAN") votesMAN++;
         });
 
@@ -404,7 +414,7 @@
         if (votesMAN >= majorityNeeded) {
           electedRole = "MAN";
           winningVotes = votesMAN;
-        } else if (votesCDP >= majorityNeeded) {
+        } else if (!alreadyCDP && votesCDP >= majorityNeeded) {
           electedRole = "CDP";
           winningVotes = votesCDP;
         }
@@ -415,7 +425,6 @@
           totalBudgetUsed += cost;
         }
 
-        // Mise à jour ciblée de la carte du candidat
         const cardEl = document.getElementById(`card-${cand.id}`);
         const badgeEl = document.getElementById(`badge-${cand.id}`);
         const vcdpEl = document.getElementById(`vcdp-${cand.id}`);
@@ -462,7 +471,6 @@
         }
       });
 
-      // Colonne gauche : Équipe 2027 Élue
       const electedContainer = document.getElementById("elected-team-list");
       if (electedCandidates.length === 0) {
         electedContainer.innerHTML = `
@@ -493,7 +501,6 @@
         }).join("");
       }
 
-      // Jauge budget
       const budgetPercent = Math.min(100, Math.round((totalBudgetUsed / BUDGET_MAX_DIRECTION) * 100));
       const isOverBudget = totalBudgetUsed > BUDGET_MAX_DIRECTION;
 
@@ -503,7 +510,6 @@
       document.getElementById("budget-bar").className = `h-3 transition-all duration-300 ${isOverBudget ? 'bg-rose-500' : 'bg-emerald-500'}`;
       document.getElementById("budget-warning").style.display = isOverBudget ? "block" : "none";
 
-      // Compteur et bannière finale
       document.getElementById("elected-count").textContent = `${electedCandidates.length} / ${TAILLE_EQUIPE_CIBLE} postes`;
       const banner = document.getElementById("consensus-banner");
 
@@ -519,7 +525,6 @@
       }
     }
 
-    // Initialisation au chargement
     renderCurrentTeam();
     initCandidateCards();
   </script>
