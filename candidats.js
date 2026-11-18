@@ -1,4 +1,4 @@
-const BUDGET_MAX_DIRECTION = 120; // Budget global alloué par la direction (en M€)
+const BUDGET_MAX_DIRECTION = 140; // Budget global alloué par la direction (en points)
 const TAILLE_EQUIPE_CIBLE = 5;    // Nombre de postes à pourvoir en 2027
 
 const PRIX_PAR_ROLE = {
