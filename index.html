@@ -52,7 +52,7 @@
             </span>
           </div>
           <p class="text-xs text-slate-400 mt-1">
-            Sélectionnez ensemble les futurs managers sans dépasser le budget de la direction.
+            Promotion <strong>CDP = 20 M€</strong> • Promotion <strong>MAN = 30 M€</strong>
           </p>
         </div>
       </div>
@@ -61,13 +61,13 @@
       <div class="w-full lg:w-96 bg-slate-950 border border-slate-800 rounded-xl p-4">
         <div class="flex justify-between text-sm font-semibold mb-1.5">
           <span class="text-slate-400">Budget Direction Utilisé</span>
-          <span id="budget-text" class="text-white">0 / 100 M€</span>
+          <span id="budget-text" class="text-white">0 / 120 M€</span>
         </div>
         <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
           <div id="budget-bar" class="bg-indigo-500 h-3 transition-all duration-300" style="width: 0%"></div>
         </div>
         <div id="budget-warning" class="hidden text-xs text-rose-400 font-semibold mt-1.5">
-          ⚠️ Budget dépassé ! Retirez un candidat pour libérer du budget.
+          ⚠️ Budget dépassé ! Ajustez les promotions pour libérer du budget.
         </div>
       </div>
 
@@ -78,15 +78,15 @@
       </div>
     </header>
 
-    <!-- ÉQUIPE ACTUELLE -->
-    <section class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4">
-      <div class="flex items-center justify-between mb-3">
+    <!-- ORGANIGRAMME PYRAMIDAL DE L'ÉQUIPE ACTUELLE -->
+    <section class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-6">
         <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">
-          Équipe Managériale Actuelle (En poste)
+          Organigramme Actuel (En poste)
         </h2>
-        <span class="text-xs text-slate-500">Référence organigramme</span>
+        <span class="text-xs text-slate-500">Vue hiérarchique</span>
       </div>
-      <div id="current-team-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+      <div id="current-team-pyramid" class="space-y-4"></div>
     </section>
 
     <!-- ZONE DE JEU -->
@@ -97,14 +97,14 @@
         <div>
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-white flex items-center gap-2">
-              🏆 Équipe 2027 Élue
+              🏆 Promotions 2027 Retenues
             </h2>
             <span id="elected-count" class="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300">
               0 / 5 postes
             </span>
           </div>
           <p class="text-xs text-slate-400 mb-4">
-            Les candidats retenus par le groupe apparaissent ici et leur coût est déduit du budget.
+            Retrouvez ici les candidats promus en <strong>MAN</strong> (30 M€) ou <strong>CDP</strong> (20 M€).
           </p>
           <div id="elected-team-list" class="space-y-3"></div>
         </div>
@@ -118,7 +118,7 @@
       <section class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <h2 class="text-lg font-bold text-white">📋 Candidats à la promotion 2027</h2>
-          <span class="text-xs text-slate-400">Clique pour intégrer ou retirer un candidat</span>
+          <span class="text-xs text-slate-400">Choisis le poste visé : CDP (20 M€) ou MAN (30 M€)</span>
         </div>
         <div id="candidates-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
       </section>
@@ -127,21 +127,79 @@
   </div>
 
   <script>
-    let selectedIds = new Set();
+    // Stocke les choix sous la forme { "c1": "MAN", "c2": "CDP" }
+    let selectedRoles = {};
 
+    // 1. Affichage pyramidal de l'équipe actuelle
     function renderCurrentTeam() {
-      const container = document.getElementById("current-team-list");
-      container.innerHTML = EQUIPE_ACTUELLE.map(member => `
-        <div class="flex items-center gap-3 bg-slate-950/70 border border-slate-800 rounded-xl p-3">
-          <img src="${member.genre}.png" alt="${member.genre}" class="w-10 h-10 rounded-full object-cover bg-slate-800 p-1" />
-          <div>
-            <div class="font-semibold text-sm text-white">${member.prenom}</div>
-            <div class="text-xs text-slate-400">${member.poste}</div>
+      const container = document.getElementById("current-team-pyramid");
+
+      // Définition des étages de la pyramide dans l'ordre exact demandé
+      const niveaux = [
+        { label: "Direction Générale", match: (p) => p.toUpperCase() === "DUO" },
+        { label: "Adjointe DUO", match: (p) => p.toUpperCase().includes("PARTNER") || p.toUpperCase().includes("ADJOINTE") },
+        { label: "Directeurs", match: (p) => p.toUpperCase().includes("DIRECTEUR") },
+        { label: "Senior Managers 2 (SM2)", match: (p) => p.toUpperCase() === "SM2" },
+        { label: "Senior Managers (SM)", match: (p) => p.toUpperCase() === "SM" },
+        { label: "Managers (MAN)", match: (p) => p.toUpperCase() === "MAN" }
+      ];
+
+      let html = "";
+      const usedIndexes = new Set();
+
+      niveaux.forEach((niveau, levelIdx) => {
+        const members = EQUIPE_ACTUELLE.filter((m, idx) => {
+          if (!usedIndexes.has(idx) && niveau.match(m.poste.trim())) {
+            usedIndexes.add(idx);
+            return true;
+          }
+          return false;
+        });
+
+        if (members.length > 0) {
+          // Ajoute un petit connecteur vertical entre les étages
+          if (html !== "") {
+            html += `<div class="flex justify-center -my-2"><div class="w-px h-4 bg-slate-700"></div></div>`;
+          }
+
+          html += `
+            <div class="flex flex-wrap justify-center gap-3">
+              ${members.map(member => `
+                <div class="flex items-center gap-3 bg-slate-950 border ${levelIdx <= 1 ? 'border-indigo-500/40 shadow-md shadow-indigo-950/30' : 'border-slate-800'} rounded-xl px-4 py-2.5 min-w-[185px]">
+                  <img src="${member.genre}.png" alt="${member.genre}" class="w-9 h-9 rounded-full object-cover bg-slate-800 p-0.5" />
+                  <div>
+                    <div class="font-semibold text-sm text-white">${member.prenom}</div>
+                    <div class="text-xs font-medium ${levelIdx <= 1 ? 'text-indigo-400' : 'text-slate-400'}">${member.poste}</div>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          `;
+        }
+      });
+
+      // Filet de sécurité si un poste a une orthographe imprévue
+      const others = EQUIPE_ACTUELLE.filter((_, idx) => !usedIndexes.has(idx));
+      if (others.length > 0) {
+        html += `
+          <div class="flex flex-wrap justify-center gap-3 pt-2 border-t border-slate-800/50">
+            ${others.map(member => `
+              <div class="flex items-center gap-3 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 min-w-[185px]">
+                <img src="${member.genre}.png" alt="${member.genre}" class="w-9 h-9 rounded-full object-cover bg-slate-800 p-0.5" />
+                <div>
+                  <div class="font-semibold text-sm text-white">${member.prenom}</div>
+                  <div class="text-xs text-slate-400">${member.poste}</div>
+                </div>
+              </div>
+            `).join("")}
           </div>
-        </div>
-      `).join("");
+        `;
+      }
+
+      container.innerHTML = html;
     }
 
+    // 2. Connexion
     document.getElementById("login-form").addEventListener("submit", (e) => {
       e.preventDefault();
       const input = document.getElementById("pseudo-input").value.trim();
@@ -152,82 +210,114 @@
       renderBoard();
     });
 
-    window.toggleCandidate = function(candidateId) {
-      if (selectedIds.has(candidateId)) {
-        selectedIds.delete(candidateId);
+    // 3. Sélectionner / Basculer entre CDP, MAN ou Retirer
+    window.selectRole = function(candidateId, role) {
+      if (selectedRoles[candidateId] === role) {
+        delete selectedRoles[candidateId]; // Re-cliquer sur le bouton actif le retire
       } else {
-        selectedIds.add(candidateId);
+        selectedRoles[candidateId] = role; // Définit ou bascule vers CDP / MAN
       }
       renderBoard();
     };
 
+    // 4. Mise à jour du tableau de bord
     function renderBoard() {
       const electedCandidates = [];
       let totalBudgetUsed = 0;
 
       const candidatesHTML = CANDIDATS.map(cand => {
-        const isElected = selectedIds.has(cand.id);
-        if (isElected) {
-          electedCandidates.push(cand);
-          totalBudgetUsed += cand.prix;
+        const chosenRole = selectedRoles[cand.id] || null; // 'CDP', 'MAN' ou null
+        const cost = chosenRole ? PRIX_PAR_ROLE[chosenRole] : 0;
+
+        if (chosenRole) {
+          electedCandidates.push({ ...cand, chosenRole, cost });
+          totalBudgetUsed += cost;
         }
 
+        const isCDP = chosenRole === "CDP";
+        const isMAN = chosenRole === "MAN";
+
         return `
-          <div class="border ${isElected ? 'border-emerald-500/60 bg-emerald-950/20' : 'border-slate-800 bg-slate-950'} rounded-xl p-4 flex flex-col justify-between transition">
+          <div class="border ${chosenRole ? (isMAN ? 'border-amber-500/60 bg-amber-950/10' : 'border-sky-500/60 bg-sky-950/10') : 'border-slate-800 bg-slate-950'} rounded-xl p-4 flex flex-col justify-between transition">
             <div class="flex items-start justify-between gap-2">
               <div class="flex items-center gap-3">
                 <img src="${cand.genre}.png" alt="${cand.genre}" class="w-12 h-12 rounded-full object-cover bg-slate-800 p-1" />
                 <div>
-                  <h3 class="font-bold text-white flex items-center gap-1.5">
+                  <h3 class="font-bold text-white flex items-center gap-2">
                     ${cand.prenom}
-                    ${isElected ? '<span class="text-xs px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">ÉLU</span>' : ''}
+                    ${isCDP ? '<span class="text-xs px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">PROMU CDP</span>' : ''}
+                    ${isMAN ? '<span class="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">PROMU MAN</span>' : ''}
                   </h3>
-                  <p class="text-xs text-slate-400">${cand.poste}</p>
+                  <p class="text-xs text-slate-400">Actuel : ${cand.poste}</p>
                 </div>
               </div>
-              <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-amber-400 font-bold text-sm">
-                ${cand.prix} M€
-              </span>
             </div>
 
-            <button
-              onclick="toggleCandidate('${cand.id}')"
-              class="mt-4 w-full py-2 px-3 rounded-lg text-sm font-semibold transition cursor-pointer ${
-                isElected
-                  ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-              }"
-            >
-              ${isElected ? '✓ Dans l’équipe 2027 (Retirer)' : '+ Intégrer à l’équipe'}
-            </button>
+            <!-- Double bouton de choix : CDP (20 M€) ou MAN (30 M€) -->
+            <div class="mt-4 grid grid-cols-2 gap-2">
+              <button
+                onclick="selectRole('${cand.id}', 'CDP')"
+                class="py-2 px-2 rounded-lg text-xs font-semibold transition cursor-pointer border ${
+                  isCDP
+                    ? 'bg-sky-600 border-sky-400 text-white shadow-sm'
+                    : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                }"
+              >
+                ${isCDP ? '✓ CDP (20 M€)' : 'Promouvoir CDP (20 M€)'}
+              </button>
+
+              <button
+                onclick="selectRole('${cand.id}', 'MAN')"
+                class="py-2 px-2 rounded-lg text-xs font-semibold transition cursor-pointer border ${
+                  isMAN
+                    ? 'bg-amber-600 border-amber-400 text-white shadow-sm'
+                    : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                }"
+              >
+                ${isMAN ? '✓ MAN (30 M€)' : 'Promouvoir MAN (30 M€)'}
+              </button>
+            </div>
           </div>
         `;
       }).join("");
 
       document.getElementById("candidates-list").innerHTML = candidatesHTML;
 
+      // Colonne gauche : Équipe 2027 Élue
       const electedContainer = document.getElementById("elected-team-list");
       if (electedCandidates.length === 0) {
         electedContainer.innerHTML = `
           <div class="text-center py-8 border border-dashed border-slate-800 rounded-xl text-slate-500 text-sm">
-            Aucun candidat sélectionné pour le moment.
+            Aucune promotion sélectionnée pour le moment.
           </div>
         `;
       } else {
-        electedContainer.innerHTML = electedCandidates.map(cand => `
-          <div class="flex items-center justify-between bg-slate-950 border border-emerald-500/40 rounded-xl p-3">
-            <div class="flex items-center gap-3">
-              <img src="${cand.genre}.png" alt="${cand.genre}" class="w-10 h-10 rounded-full object-cover bg-slate-800 p-1" />
-              <div>
-                <div class="font-bold text-sm text-white">${cand.prenom}</div>
-                <div class="text-xs text-slate-400">${cand.poste}</div>
+        electedContainer.innerHTML = electedCandidates.map(cand => {
+          const isMAN = cand.chosenRole === "MAN";
+          return `
+            <div class="flex items-center justify-between bg-slate-950 border ${isMAN ? 'border-amber-500/40' : 'border-sky-500/40'} rounded-xl p-3">
+              <div class="flex items-center gap-3">
+                <img src="${cand.genre}.png" alt="${cand.genre}" class="w-10 h-10 rounded-full object-cover bg-slate-800 p-1" />
+                <div>
+                  <div class="font-bold text-sm text-white flex items-center gap-2">
+                    ${cand.prenom}
+                    <span class="text-[11px] px-2 py-0.5 rounded font-bold ${isMAN ? 'bg-amber-500/20 text-amber-300' : 'bg-sky-500/20 text-sky-300'}">
+                      ${cand.chosenRole}
+                    </span>
+                  </div>
+                  <div class="text-xs text-slate-400">Actuel : ${cand.poste}</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="font-bold ${isMAN ? 'text-amber-400' : 'text-sky-400'} text-sm">${cand.cost} M€</span>
+                <button onclick="selectRole('${cand.id}', '${cand.chosenRole}')" title="Retirer" class="text-slate-500 hover:text-rose-400 text-xs font-bold cursor-pointer">✕</button>
               </div>
             </div>
-            <span class="font-bold text-amber-400 text-sm">${cand.prix} M€</span>
-          </div>
-        `).join("");
+          `;
+        }).join("");
       }
 
+      // Jauge budget
       const budgetPercent = Math.min(100, Math.round((totalBudgetUsed / BUDGET_MAX_DIRECTION) * 100));
       const isOverBudget = totalBudgetUsed > BUDGET_MAX_DIRECTION;
 
@@ -237,6 +327,7 @@
       document.getElementById("budget-bar").className = `h-3 transition-all duration-300 ${isOverBudget ? 'bg-rose-500' : 'bg-emerald-500'}`;
       document.getElementById("budget-warning").classList.toggle("hidden", !isOverBudget);
 
+      // Compteur et statut final
       document.getElementById("elected-count").textContent = `${electedCandidates.length} / ${TAILLE_EQUIPE_CIBLE} postes`;
       const banner = document.getElementById("consensus-banner");
 
