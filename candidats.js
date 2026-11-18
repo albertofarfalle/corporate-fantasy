@@ -8,7 +8,7 @@ const PRIX_PAR_ROLE = {
 
 const CANDIDATS = [
   { id: "c1", prenom: "David", poste: "CS", genre: "homme" },
-  { id: "c2", prenom: "Aysegul", poste: "CS", genre: "femme" },
+  { id: "c2", prenom: "Ayse", poste: "CS", genre: "femme" },
   { id: "c3", prenom: "Fares", poste: "CDP", genre: "homme" },
   { id: "c4", prenom: "Jessica", poste: "CS", genre: "femme" },
   { id: "c5", prenom: "Aiman", poste: "CS", genre: "homme" },
