@@ -17,4 +17,5 @@ const CANDIDATS = [
   { id: "c8", prenom: "Erwan", poste: "CDP", genre: "homme" },
   { id: "c9", prenom: "Soumaya", poste: "CS", genre: "femme" },
   { id: "c10", prenom: "Danielle", poste: "CDP", genre: "femme" },
+  { id: "c9", prenom: "Faustine", poste: "CS", genre: "femme" },
 ];
