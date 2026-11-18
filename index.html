@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Corporate Fantasy 2027 — Conseil Live</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chargement de tes fichiers de données -->
+  <script src="equipe.js"></script>
+  <script src="candidats.js"></script>
+  <!-- SDK Firebase Realtime Database -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+
+  <!-- ÉCRAN DE CONNEXION (PSEUDO UNIQUEMENT) -->
+  <div id="login-screen" class="fixed inset-0 bg-slate-950/95 z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-8 text-center shadow-2xl">
+      <img src="logo.png" alt="Logo Corporate Fantasy" class="h-24 mx-auto mb-6 object-contain" onerror="this.style.display='none'" />
+      <h1 class="text-2xl font-bold text-white mb-2">Corporate Fantasy 2027</h1>
+      <p class="text-slate-400 text-sm mb-6">
+        Rejoins la salle du Conseil en direct pour élire la future équipe managériale dans le budget alloué.
+      </p>
+      <form id="login-form" class="space-y-4">
+        <input
+          type="text"
+          id="pseudo-input"
+          required
+          maxlength="20"
+          placeholder="Entre ton pseudo..."
+          class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+        />
+        <button
+          type="submit"
+          class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 font-semibold text-white transition cursor-pointer"
+        >
+          Entrer dans la salle Live
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- INTERFACE PRINCIPALE -->
+  <div id="app" class="hidden max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+
+    <!-- EN-TÊTE + JAUGE BUDGET + JOUEURS EN LIGNE -->
+    <header class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col lg:flex-row items-center justify-between gap-6">
+      <div class="flex items-center gap-4">
+        <img src="logo.png" alt="Logo" class="h-14 w-auto object-contain" onerror="this.style.display='none'" />
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold text-white">Corporate Fantasy 2027</h1>
+            <span class="px-2.5 py-0.5 text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> LIVE
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">
+            Majorité requise (&gt;50% des connectés) pour valider un candidat dans l'équipe.
+          </p>
+        </div>
+      </div>
+
+      <!-- JAUGE DE BUDGET DE LA DIRECTION -->
+      <div class="w-full lg:w-96 bg-slate-950 border border-slate-800 rounded-xl p-4">
+        <div class="flex justify-between text-sm font-semibold mb-1.5">
+          <span class="text-slate-400">Budget Direction Utilisé</span>
+          <span id="budget-text" class="text-white">0 / 100 M€</span>
+        </div>
+        <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+          <div id="budget-bar" class="bg-indigo-500 h-3 transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <div id="budget-warning" class="hidden text-xs text-rose-400 font-semibold mt-1.5">
+          ⚠️ Budget dépassé ! Retirez un vote pour libérer du budget.
+        </div>
+      </div>
+
+      <!-- LISTE DES JOUEURS EN DIRECT -->
+      <div class="flex flex-col items-end">
+        <div class="text-xs text-slate-400 mb-1.5">
+          Participants en ligne (<span id="online-count" class="text-white font-bold">0</span>) :
+        </div>
+        <div id="online-users" class="flex flex-wrap justify-end gap-1.5 max-w-xs"></div>
+      </div>
+    </header>
+
+    <!-- ÉQUIPE ACTUELLE (RAPPEL ORGANIGRAMME) -->
+    <section class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-400">
+          Équipe Managériale Actuelle (En poste)
+        </h2>
+        <span class="text-xs text-slate-500">Référence organigramme</span>
+      </div>
+      <div id="current-team-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+    </section>
+
+    <!-- ZONE DE JEU : BANC VALIDÉ 2027 & MARCHÉ DES VOTES -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- COLONNE GAUCHE : ÉQUIPE 2027 VALIDÉE À LA MAJORITÉ (5 colonnes) -->
+      <section class="lg:col-span-5 bg-slate-900 border border-indigo-500/30 rounded-2xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              🏆 Équipe 2027 Élue
+            </h2>
+            <span id="elected-count" class="text-xs font-bold px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300">
+              0 / 5 postes
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mb-4">
+            Les candidats obtenant strictement plus de 50% des voix des joueurs connectés apparaissent ici automatiquement.
+          </p>
+          <div id="elected-team-list" class="space-y-3"></div>
+        </div>
+
+        <!-- STATUT DU CONSENSUS -->
+        <div id="consensus-banner" class="mt-6 p-4 rounded-xl bg-slate-950 border border-slate-800 text-center">
+          <p class="text-sm text-slate-400">En attente du consensus de l'équipe...</p>
+        </div>
+      </section>
+
+      <!-- COLONNE DROITE : TOUS LES CANDIDATS & VOTES EN LIVE (7 colonnes) -->
+      <section class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <h2 class="text-lg font-bold text-white">📋 Candidats à la promotion 2027</h2>
+          <span class="text-xs text-slate-400">Clique sur « Voter Pour » pour soutenir un candidat</span>
+        </div>
+        <div id="candidates-list" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      </section>
+
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // CONFIGURATION FIREBASE (REMPLACE L'URL CI-DESSOUS PAR LA TIENNE !)
+    // =========================================================================
+    const FIREBASE_DATABASE_URL = "https://REMPLACE-MOI-default-rtdb.europe-west1.firebasedatabase.app";
+
+    firebase.initializeApp({ databaseURL: FIREBASE_DATABASE_URL });
+    const db = firebase.database();
+
+    let myPseudo = "";
+    let myUserId = "user_" + Math.random().toString(36).substring(2, 9);
+    let activeUsers = {};
+    let allVotes = {};
+
+    // 1. Afficher l'équipe managériale actuelle depuis equipe.js
+    function renderCurrentTeam() {
+      const container = document.getElementById("current-team-list");
+      container.innerHTML = EQUIPE_ACTUELLE.map(member => `
+        <div class="flex items-center gap-3 bg-slate-950/70 border border-slate-800 rounded-xl p-3">
+          <img src="${member.genre}.png" alt="${member.genre}" class="w-10 h-10 rounded-full object-cover bg-slate-800 p-1" />
+          <div>
+            <div class="font-semibold text-sm text-white">${member.prenom}</div>
+            <div class="text-xs text-slate-400">${member.poste}</div>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    // 2. Connexion avec pseudo et gestion de la présence en ligne
+    document.getElementById("login-form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("pseudo-input").value.trim();
+      if (!input) return;
+      myPseudo = input;
+
+      document.getElementById("login-screen").classList.add("hidden");
+      document.getElementById("app").classList.remove("hidden");
+
+      const userRef = db.ref("presence/" + myUserId);
+      const connectedRef = db.ref(".info/connected");
+
+      connectedRef.on("value", (snap) => {
+        if (snap.val() === true) {
+          // Supprime automatiquement le joueur et ses votes s'il ferme l'onglet
+          userRef.onDisconnect().remove();
+          db.ref("votes/" + myUserId).onDisconnect().remove();
+          userRef.set({ pseudo: myPseudo, joinedAt: Date.now() });
+        }
+      });
+
+      startListening();
+    });
+
+    // 3. Écoute en temps réel des joueurs connectés et des votes
+    function startListening() {
+      db.ref("presence").on("value", (snap) => {
+        activeUsers = snap.val() || {};
+        renderBoard();
+      });
+
+      db.ref("votes").on("value", (snap) => {
+        allVotes = snap.val() || {};
+        renderBoard();
+      });
+    }
+
+    // 4. Voter / Retirer son vote pour un candidat
+    window.toggleVote = function(candidateId) {
+      const myCurrentVotes = allVotes[myUserId] || {};
+      const newState = !myCurrentVotes[candidateId];
+      db.ref(`votes/${myUserId}/${candidateId}`).set(newState ? true : null);
+    };
+
+    // 5. Calcul des majorités et mise à jour de toute l'interface en direct
+    function renderBoard() {
+      const userIds = Object.keys(activeUsers);
+      const totalOnline = userIds.length;
+      const majorityNeeded = Math.floor(totalOnline / 2) + 1;
+
+      // Affichage des joueurs connectés
+      document.getElementById("online-count").textContent = totalOnline;
+      document.getElementById("online-users").innerHTML = userIds.map(uid => `
+        <span class="px-2.5 py-1 text-xs rounded-full ${uid === myUserId ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-800 text-slate-300'}">
+          ${activeUsers[uid].pseudo}
+        </span>
+      `).join("");
+
+      // Calcul des voix par candidat (uniquement parmi les joueurs actuellement connectés)
+      const electedCandidates = [];
+      let totalBudgetUsed = 0;
+
+      const candidatesHTML = CANDIDATS.map(cand => {
+        const voters = userIds.filter(uid => allVotes[uid] && allVotes[uid][cand.id]);
+        const voteCount = voters.length;
+        const isElected = totalOnline > 0 && voteCount >= majorityNeeded;
+        const iVoted = Boolean(allVotes[myUserId] && allVotes[myUserId][cand.id]);
+        const percent = totalOnline > 0 ? Math.round((voteCount / totalOnline) * 100) : 0;
+
+        if (isElected) {
+          electedCandidates.push({ ...cand, voteCount, voters });
+          totalBudgetUsed += cand.prix;
+        }
+
+        return `
+          <div class="border ${isElected ? 'border-emerald-500/60 bg-emerald-950/20' : 'border-slate-800 bg-slate-950'} rounded-xl p-4 flex flex-col justify-between transition">
+            <div>
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-3">
+                  <img src="${cand.genre}.png" alt="${cand.genre}" class="w-12 h-12 rounded-full object-cover bg-slate-800 p-1" />
+                  <div>
+                    <h3 class="font-bold text-white flex items-center gap-1.5">
+                      ${cand.prenom}
+                      ${isElected ? '<span class="text-xs px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">ÉLU</span>' : ''}
+                    </h3>
+                    <p class="text-xs text-slate-400">${cand.poste}</p>
+                  </div>
+                </div>
+                <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-amber-400 font-bold text-sm">
+                  ${cand.prix} M€
+                </span>
+              </div>
+
+              <!-- Barre de progression des votes -->
+              <div class="mt-4">
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="text-slate-400">${voteCount} / ${totalOnline} voix (seuil : ${majorityNeeded})</span>
+                  <span class="font-semibold ${isElected ? 'text-emerald-400' : 'text-slate-300'}">${percent}%</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                  <div class="h-2 transition-all duration-300 ${isElected ? 'bg-emerald-500' : 'bg-indigo-500'}" style="width: ${percent}%"></div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onclick="toggleVote('${cand.id}')"
+              class="mt-4 w-full py-2 px-3 rounded-lg text-sm font-semibold transition cursor-pointer ${
+                iVoted
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-500'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }"
+            >
+              ${iVoted ? '✓ Mon vote est compté (Retirer)' : '+ Voter Pour'}
+            </button>
+          </div>
+        `;
+      }).join("");
+
+      document.getElementById("candidates-list").innerHTML = candidatesHTML;
+
+      // Mise à jour de la colonne "Équipe 2027 Élue"
+      const electedContainer = document.getElementById("elected-team-list");
+      if (electedCandidates.length === 0) {
+        electedContainer.innerHTML = `
+          <div class="text-center py-8 border border-dashed border-slate-800 rounded-xl text-slate-500 text-sm">
+            Aucun candidat n'a encore atteint la majorité (${majorityNeeded} voix requises).
+          </div>
+        `;
+      } else {
+        electedContainer.innerHTML = electedCandidates.map(cand => `
+          <div class="flex items-center justify-between bg-slate-950 border border-emerald-500/40 rounded-xl p-3">
+            <div class="flex items-center gap-3">
+              <img src="${cand.genre}.png" alt="${cand.genre}" class="w-10 h-10 rounded-full object-cover bg-slate-800 p-1" />
+              <div>
+                <div class="font-bold text-sm text-white">${cand.prenom}</div>
+                <div class="text-xs text-slate-400">${cand.poste} • ${cand.voteCount}/${totalOnline} voix</div>
+              </div>
+            </div>
+            <span class="font-bold text-amber-400 text-sm">${cand.prix} M€</span>
+          </div>
+        `).join("");
+      }
+
+      // Mise à jour de la jauge de budget
+      const budgetPercent = Math.min(100, Math.round((totalBudgetUsed / BUDGET_MAX_DIRECTION) * 100));
+      const isOverBudget = totalBudgetUsed > BUDGET_MAX_DIRECTION;
+
+      document.getElementById("budget-text").textContent = `${totalBudgetUsed} / ${BUDGET_MAX_DIRECTION} M€`;
+      document.getElementById("budget-text").className = isOverBudget ? "text-rose-400 font-bold" : "text-white font-bold";
+      document.getElementById("budget-bar").style.width = `${budgetPercent}%`;
+      document.getElementById("budget-bar").className = `h-3 transition-all duration-300 ${isOverBudget ? 'bg-rose-500' : 'bg-emerald-500'}`;
+      document.getElementById("budget-warning").classList.toggle("hidden", !isOverBudget);
+
+      // Compteur de postes et bannière de validation finale
+      document.getElementById("elected-count").textContent = `${electedCandidates.length} / ${TAILLE_EQUIPE_CIBLE} postes`;
+      const banner = document.getElementById("consensus-banner");
+
+      if (electedCandidates.length === TAILLE_EQUIPE_CIBLE && !isOverBudget) {
+        banner.className = "mt-6 p-4 rounded-xl bg-emerald-500/20 border border-emerald-500 text-center";
+        banner.innerHTML = `<p class="text-sm font-bold text-emerald-300">🎉 Consensus Validé ! L'équipe 2027 est complète et respecte le budget de la direction.</p>`;
+      } else if (isOverBudget) {
+        banner.className = "mt-6 p-4 rounded-xl bg-rose-500/20 border border-rose-500 text-center";
+        banner.innerHTML = `<p class="text-sm font-bold text-rose-300">⚠️ Budget dépassé de ${totalBudgetUsed - BUDGET_MAX_DIRECTION} M€. Négociez en live pour ajuster les votes !</p>`;
+      } else {
+        banner.className = "mt-6 p-4 rounded-xl bg-slate-950 border border-slate-800 text-center";
+        banner.innerHTML = `<p class="text-xs text-slate-400">Encore <strong>${Math.max(0, TAILLE_EQUIPE_CIBLE - electedCandidates.length)}</strong> poste(s) à valider à la majorité.</p>`;
+      }
+    }
+
+    renderCurrentTeam();
+  </script>
+</body>
+</html>
